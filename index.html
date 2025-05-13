@@ -1,0 +1,2708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MMU E-Clearance System</title>
+    <!-- Add Firebase and Twilio scripts -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://sdk.twilio.com/js/client/latest/twilio.min.js"></script>
+    <style>
+        /* Modern CSS with improved mobile responsiveness */
+        :root {
+            --primary-green: #2e7d32;
+            --light-green: #e8f5e9;
+            --dark-green: #1b5e20;
+            --primary-red: #c62828;
+            --light-red: #ffebee;
+            --white: #ffffff;
+            --gray: #f5f5f5;
+            --dark-gray: #424242;
+            --primary-blue: #1565c0;
+            --light-blue: #e3f2fd;
+            --primary-purple: #7b1fa2;
+            --light-purple: #f3e5f5;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--gray);
+            color: var(--dark-gray);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+
+        header {
+            background-color: var(--primary-green);
+            color: var(--white);
+            padding: 15px 0;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .login-container, .dashboard {
+            background-color: var(--white);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            color: var(--primary-green);
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 22px;
+        }
+
+        h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 15px;
+        }
+
+        button, .btn {
+            background-color: var(--primary-green);
+            color: var(--white);
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        button:hover, .btn:hover {
+            background-color: var(--dark-green);
+            transform: translateY(-1px);
+        }
+
+        .alert {
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background-color: var(--light-green);
+            color: var(--dark-green);
+            border-left: 4px solid var(--primary-green);
+        }
+
+        .alert-error {
+            background-color: var(--light-red);
+            color: var(--primary-red);
+            border-left: 4px solid var(--primary-red);
+        }
+
+        .alert-info {
+            background-color: var(--light-blue);
+            color: var(--primary-blue);
+            border-left: 4px solid var(--primary-blue);
+        }
+
+        .alert-warning {
+            background-color: #fff3e0;
+            color: #e65100;
+            border-left: 4px solid #ff9800;
+        }
+
+        .nav-tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 15px;
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .nav-tab {
+            padding: 8px 15px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-size: 14px;
+        }
+
+        .nav-tab.active {
+            border-bottom: 3px solid var(--primary-green);
+            font-weight: bold;
+            color: var(--primary-green);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .clearance-item {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            gap: 10px;
+        }
+
+        .clearance-item:last-child {
+            border-bottom: none;
+        }
+
+        .status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .status-pending {
+            background-color: #fff3e0;
+            color: #e65100;
+        }
+
+        .status-completed {
+            background-color: var(--light-green);
+            color: var(--dark-green);
+        }
+
+        .status-rejected {
+            background-color: var(--light-red);
+            color: var(--primary-red);
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            border: none;
+            margin: 3px;
+            transition: all 0.3s;
+        }
+
+        .approve-btn {
+            background-color: var(--primary-green);
+            color: white;
+        }
+
+        .reject-btn {
+            background-color: var(--primary-red);
+            color: white;
+        }
+
+        .student-info {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .info-card {
+            background-color: var(--white);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .logout-btn {
+            background-color: var(--primary-red);
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        footer {
+            text-align: center;
+            padding: 15px;
+            color: var(--dark-gray);
+            font-size: 13px;
+        }
+
+        .profile-form {
+            margin-top: 15px;
+        }
+
+        .profile-form input {
+            margin-bottom: 12px;
+        }
+
+        .save-btn {
+            width: 100%;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border-left-color: var(--primary-green);
+            animation: spin 1s linear infinite;
+            margin: 15px auto;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Landing page styles */
+        .landing-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 70vh;
+            text-align: center;
+            padding: 15px;
+        }
+
+        .landing-image {
+            max-width: 100%;
+            height: auto;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            max-height: 200px;
+        }
+
+        .landing-btn {
+            background-color: var(--primary-green);
+            color: white;
+            padding: 10px 25px;
+            font-size: 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        /* Department specific styles */
+        .department-details {
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            border-left: 4px solid var(--primary-green);
+            font-size: 14px;
+        }
+
+        .department-details h4 {
+            margin-bottom: 8px;
+            color: var(--dark-green);
+        }
+
+        .book-item, .attendance-item, .damage-item {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            gap: 8px;
+        }
+
+        .book-image, .damage-image {
+            width: 100%;
+            max-width: 200px;
+            height: auto;
+            object-fit: cover;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+
+        .nudge-btn {
+            background-color: #ff9800;
+            color: white;
+        }
+
+        .congrats-message {
+            background-color: var(--light-green);
+            color: var(--dark-green);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 15px 0;
+            border-left: 6px solid var(--primary-green);
+            font-size: 14px;
+        }
+
+        .motivation-message {
+            background-color: #e3f2fd;
+            color: #0d47a1;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 12px 0;
+            border-left: 4px solid #2196f3;
+            font-size: 14px;
+        }
+
+        .rejection-reasons {
+            background-color: #fff3e0;
+            padding: 12px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #ff9800;
+        }
+
+        .rejection-reason {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed #ffcc80;
+        }
+
+        .rejection-reason:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .rejection-comment {
+            font-style: italic;
+            margin-top: 5px;
+            color: #e65100;
+        }
+
+        .file-upload {
+            margin: 15px 0;
+        }
+
+        .file-upload-label {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .file-upload-input {
+            padding: 0;
+            border: none;
+        }
+
+        .file-upload-preview {
+            max-width: 100%;
+            height: auto;
+            margin-top: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .profile-image-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .profile-image {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--primary-green);
+            margin-bottom: 10px;
+        }
+
+        .change-profile-btn {
+            background-color: var(--primary-blue);
+            color: white;
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .close-modal {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-modal:hover {
+            color: black;
+        }
+
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .evidence-image {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .modal-image {
+            max-width: 100%;
+            max-height: 70vh;
+        }
+
+        .modal-image-container {
+            text-align: center;
+        }
+
+        .payment-form {
+            margin-top: 15px;
+        }
+
+        .payment-proof {
+            max-width: 100%;
+            height: auto;
+            margin-top: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .faculty-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        .faculty-badge-bbit {
+            background-color: var(--light-blue);
+            color: var(--primary-blue);
+        }
+
+        .faculty-badge-fameco {
+            background-color: var(--light-purple);
+            color: var(--primary-purple);
+        }
+
+        .faculty-badge-default {
+            background-color: var(--light-green);
+            color: var(--dark-green);
+        }
+
+        .switch-login-type {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .switch-link {
+            color: var(--primary-blue);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .faculty-filter {
+            margin-bottom: 15px;
+        }
+
+        /* Responsive adjustments */
+        @media (min-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .logo {
+                font-size: 24px;
+            }
+
+            .login-container, .dashboard {
+                padding: 25px;
+            }
+
+            h2 {
+                font-size: 24px;
+                margin-bottom: 20px;
+            }
+
+            h3 {
+                font-size: 20px;
+            }
+
+            .student-info {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .clearance-item {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .book-item, .attendance-item, .damage-item {
+                flex-direction: row;
+                align-items: center;
+            }
+
+            .book-image, .damage-image {
+                width: 80px;
+                height: 120px;
+                margin-right: 15px;
+            }
+
+            .landing-image {
+                max-height: 300px;
+            }
+
+            .profile-image {
+                width: 150px;
+                height: 150px;
+            }
+        }
+
+        @media (min-width: 992px) {
+            .container {
+                padding: 30px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Landing Page -->
+    <div id="landing-page">
+        <header>
+            <div class="container">
+                <div class="logo">Multimedia University - E-Clearance System</div>
+            </div>
+        </header>
+        
+        <div class="landing-container">
+            <img src="https://th.bing.com/th/id/OIP.KMox3_6Ue0txXzkP60Mw_QAAAA?rs=1&pid=ImgDetMain" alt="MMU Network" class="landing-image">
+            <h2>Welcome to MMU E-Clearance System</h2>
+            <p>Streamlining the clearance process for students and departments</p>
+            <a href="#" class="landing-btn" id="proceed-to-login">Proceed to Login</a>
+        </div>
+        
+        <footer>
+            <div class="container">
+                <p>&copy; 2025 Multimedia University - Group 16. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+    
+    <!-- Login and Dashboard Page (hidden initially) -->
+    <div id="main-system" style="display: none;">
+        <header>
+            <div class="container">
+                <div class="logo">Multimedia University - E-Clearance System</div>
+            </div>
+        </header>
+        
+        <div class="container">
+            <!-- Student Login Section -->
+            <div id="student-login-section" class="login-container">
+                <h2>Student Login</h2>
+                <div id="login-alert" class="alert" style="display: none;"></div>
+                <form id="student-login-form">
+                    <div class="form-group">
+                        <label for="student-username">Registration Number</label>
+                        <input type="text" id="student-username" placeholder="Enter your registration number" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="student-password">Password</label>
+                        <input type="password" id="student-password" placeholder="Enter your password" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="checkbox" id="remember-me">
+                        <label for="remember-me" style="display: inline;">Remember me</label>
+                    </div>
+                    <button type="submit">Login</button>
+                    <div class="switch-login-type">
+                        <span>Are you a department? </span>
+                        <span class="switch-link" id="switch-to-dept-login">Login as department</span>
+                    </div>
+                    <div id="login-spinner" class="spinner"></div>
+                </form>
+            </div>
+            
+            <!-- Department Login Section (hidden initially) -->
+            <div id="dept-login-section" class="login-container" style="display: none;">
+                <h2>Department Login</h2>
+                <div id="dept-login-alert" class="alert" style="display: none;"></div>
+                <form id="dept-login-form">
+                    <div class="form-group">
+                        <label for="dept-name">Department Name</label>
+                        <select id="dept-name" required>
+                            <option value="">Select department</option>
+                            <option value="finance">Finance Department</option>
+                            <option value="library">Library Department</option>
+                            <option value="academic">Academic Department</option>
+                            <option value="admin">Administration</option>
+                            <option value="hostel">Hostel Department</option>
+                            <option value="sports">Sports Department</option>
+                            <option value="health">Health Center</option>
+                            <option value="examinations">Examinations Office</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="dept-password">Password</label>
+                        <input type="password" id="dept-password" placeholder="Enter your password" required>
+                    </div>
+                    <button type="submit">Login</button>
+                    <div class="switch-login-type">
+                        <span>Are you a student? </span>
+                        <span class="switch-link" id="switch-to-student-login">Login as student</span>
+                    </div>
+                    <div id="dept-login-spinner" class="spinner"></div>
+                </form>
+            </div>
+            
+            <!-- Dashboard Section (hidden by default) -->
+            <div id="dashboard-section" style="display: none;">
+                <!-- Student Dashboard -->
+                <div id="student-dashboard" class="dashboard">
+                    <h2>Student Clearance Dashboard</h2>
+                    <div class="nav-tabs">
+                        <div class="nav-tab active" data-tab="clearance-status">Clearance Status</div>
+                        <div class="nav-tab" data-tab="profile">My Profile</div>
+                    </div>
+                    
+                    <div id="clearance-status" class="tab-content active">
+                        <div id="congrats-message" class="congrats-message" style="display: none;">
+                            <h3>🎉 Congratulations! 🎉</h3>
+                            <p>You have successfully completed all clearance requirements!</p>
+                            <p>You can now proceed with your academic journey without any hindrances.</p>
+                        </div>
+                        
+                        <div id="student-clearance-items">
+                            <!-- Dynamic content will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <div id="profile" class="tab-content">
+                        <div class="profile-image-container">
+                            <img id="profile-image" src="https://via.placeholder.com/150?text=Profile" alt="Profile Image" class="profile-image">
+                            <button id="change-profile-btn" class="change-profile-btn">Change Profile Image</button>
+                            <input type="file" id="profile-image-input" accept="image/*" style="display: none;">
+                        </div>
+                        
+                        <div class="student-info">
+                            <div class="info-card">
+                                <h3>Personal Information</h3>
+                                <p><strong>Name:</strong> <span id="student-name">John Doe</span></p>
+                                <p><strong>Registration No:</strong> <span id="student-reg">BUS-242-028/2022</span></p>
+                                <p><strong>Program:</strong> <span id="student-program">BBIT</span></p>
+                                <p><strong>Faculty:</strong> <span id="student-faculty">Science and Technology</span></p>
+                                <p><strong>Year of Study:</strong> <span id="student-year">4</span></p>
+                            </div>
+                            
+                            <div class="info-card">
+                                <h3>Contact Information</h3>
+                                <form id="profile-form" class="profile-form">
+                                    <label for="student-email-input">Email:</label>
+                                    <input type="email" id="student-email-input" value="john.doe@mmu.ac.ke">
+                                    
+                                    <label for="student-phone-input">Phone:</label>
+                                    <input type="tel" id="student-phone-input" value="+254712345678">
+                                    
+                                    <button type="submit" class="save-btn">Save Changes</button>
+                                    <div id="profile-spinner" class="spinner"></div>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <button id="student-logout" class="logout-btn">Logout</button>
+                    </div>
+                </div>
+                
+                <!-- Department Dashboards -->
+                <div id="department-dashboard" class="dashboard" style="display: none;">
+                    <h2 id="dept-title">Department Dashboard</h2>
+                    
+                    <div id="dept-motivation" class="motivation-message" style="display: none;">
+                        <h3>🌟 Great Work! 🌟</h3>
+                        <p>Your efficient processing of clearance requests helps students progress in their academic journey.</p>
+                        <p>Keep up the good work!</p>
+                    </div>
+                    
+                    <div class="nav-tabs">
+                        <div class="nav-tab active" data-tab="pending-clearance">Pending Clearance</div>
+                        <div class="nav-tab" data-tab="cleared-students">Cleared Students</div>
+                        <div class="nav-tab" data-tab="department-info">Department Info</div>
+                    </div>
+                    
+                    <div id="pending-clearance" class="tab-content active">
+                        <div class="alert alert-success">
+                            Below is the list of students pending clearance in your department.
+                        </div>
+                        
+                        <div class="faculty-filter">
+                            <label for="faculty-filter">Filter by Faculty:</label>
+                            <select id="faculty-filter">
+                                <option value="all">All Faculties</option>
+                                <option value="BBIT">BBIT</option>
+                                <option value="FAMECO">FAMECO</option>
+                                <!-- More faculties will be added dynamically -->
+                            </select>
+                        </div>
+                        
+                        <div id="pending-clearance-items">
+                            <!-- Dynamic content will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <div id="cleared-students" class="tab-content">
+                        <div class="alert alert-success">
+                            Below is the list of students who have been cleared by your department.
+                        </div>
+                        
+                        <div class="faculty-filter">
+                            <label for="cleared-faculty-filter">Filter by Faculty:</label>
+                            <select id="cleared-faculty-filter">
+                                <option value="all">All Faculties</option>
+                                <option value="BBIT">BBIT</option>
+                                <option value="FAMECO">FAMECO</option>
+                                <!-- More faculties will be added dynamically -->
+                            </select>
+                        </div>
+                        
+                        <div id="cleared-students-items">
+                            <!-- Dynamic content will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <div id="department-info" class="tab-content">
+                        <div class="department-details">
+                            <h4>Department Specific Information</h4>
+                            <div id="dept-specific-info">
+                                <!-- Dynamic content will be inserted here based on department -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button id="dept-logout" class="logout-btn">Logout</button>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <div class="container">
+                <p>&copy; 2023 Multimedia University - Group 16. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Rejection Details Modal -->
+    <div id="rejection-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>Clearance Rejection Details</h3>
+            <div id="rejection-details-content"></div>
+            <div class="action-buttons">
+                <button id="request-reclearance-btn" class="btn">Request Re-clearance</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image View Modal -->
+    <div id="image-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <div class="modal-image-container">
+                <img id="modal-image" class="modal-image">
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Proof Modal -->
+    <div id="payment-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>Upload Payment Proof</h3>
+            <form id="payment-form" class="payment-form">
+                <div class="form-group">
+                    <label for="payment-amount">Amount Paid:</label>
+                    <input type="number" id="payment-amount" placeholder="Enter amount paid" required>
+                </div>
+                <div class="form-group">
+                    <label for="payment-reference">Payment Reference:</label>
+                    <input type="text" id="payment-reference" placeholder="Enter payment reference" required>
+                </div>
+                <div class="form-group">
+                    <label for="payment-date">Payment Date:</label>
+                    <input type="date" id="payment-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="payment-proof">Upload Payment Proof (Image/PDF):</label>
+                    <input type="file" id="payment-proof" accept="image/*,.pdf" required>
+                    <img id="payment-preview" class="payment-proof">
+                </div>
+                <button type="submit" class="btn">Submit Payment Proof</button>
+                <div id="payment-spinner" class="spinner"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Firebase (replace with your config)
+        const firebaseConfig = {
+            apiKey: "AIzaSyCDYianIs_dLAI2bpBNRPRXVamHDYOhIcE",
+            authDomain: "housingfreeop.firebaseapp.com",
+            databaseURL: "https://housingfreeop-default-rtdb.firebaseio.com",
+            projectId: "housingfreeop",
+            storageBucket: "housingfreeop.appspot.com",
+            messagingSenderId: "369472820914",
+            appId: "1:369472820914:web:019f84d75e8b6ccaa91bab",
+            measurementId: "G-109WEPSSQ7"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const storage = firebase.storage();
+        
+        // Initialize Twilio (replace with your Account SID and Auth Token)
+        const TWILIO_ACCOUNT_SID = 'ACa8c20ac9afd8a3175c3a08aacc8f45f2';
+        const TWILIO_AUTH_TOKEN = '028b77ee3b98b00037254a85ff42b032';
+        const TWILIO_PHONE_NUMBER = '+19406444893';
+        
+        // Helper function to convert registration numbers for Firebase keys
+        function toFirebaseKey(regNumber) {
+            return regNumber.replace(/\//g, '_');
+        }
+        
+        function fromFirebaseKey(firebaseKey) {
+            return firebaseKey.replace(/_/g, '/');
+        }
+        
+        // Current user session
+        let currentUser = null;
+        let currentDept = null;
+        let allFaculties = ['BBIT', 'FAMECO']; // Initial faculties, will be updated from database
+        
+        // DOM elements
+        const landingPage = document.getElementById('landing-page');
+        const mainSystem = document.getElementById('main-system');
+        const studentLoginSection = document.getElementById('student-login-section');
+        const deptLoginSection = document.getElementById('dept-login-section');
+        const dashboardSection = document.getElementById('dashboard-section');
+        const studentDashboard = document.getElementById('student-dashboard');
+        const deptDashboard = document.getElementById('department-dashboard');
+        const studentLoginForm = document.getElementById('student-login-form');
+        const deptLoginForm = document.getElementById('dept-login-form');
+        const loginAlert = document.getElementById('login-alert');
+        const deptLoginAlert = document.getElementById('dept-login-alert');
+        const rememberMe = document.getElementById('remember-me');
+        const loginSpinner = document.getElementById('login-spinner');
+        const deptLoginSpinner = document.getElementById('dept-login-spinner');
+        const profileForm = document.getElementById('profile-form');
+        const profileSpinner = document.getElementById('profile-spinner');
+        const congratsMessage = document.getElementById('congrats-message');
+        const deptMotivation = document.getElementById('dept-motivation');
+        const profileImage = document.getElementById('profile-image');
+        const changeProfileBtn = document.getElementById('change-profile-btn');
+        const profileImageInput = document.getElementById('profile-image-input');
+        const rejectionModal = document.getElementById('rejection-modal');
+        const rejectionDetailsContent = document.getElementById('rejection-details-content');
+        const closeModalButtons = document.querySelectorAll('.close-modal');
+        const imageModal = document.getElementById('image-modal');
+        const modalImage = document.getElementById('modal-image');
+        const requestReclearanceBtn = document.getElementById('request-reclearance-btn');
+        const paymentModal = document.getElementById('payment-modal');
+        const paymentForm = document.getElementById('payment-form');
+        const paymentSpinner = document.getElementById('payment-spinner');
+        const facultyFilter = document.getElementById('faculty-filter');
+        const clearedFacultyFilter = document.getElementById('cleared-faculty-filter');
+        
+        // Landing page navigation
+        document.getElementById('proceed-to-login').addEventListener('click', function(e) {
+            e.preventDefault();
+            landingPage.style.display = 'none';
+            mainSystem.style.display = 'block';
+        });
+        
+        // Switch between student and department login
+        document.getElementById('switch-to-dept-login').addEventListener('click', function() {
+            studentLoginSection.style.display = 'none';
+            deptLoginSection.style.display = 'block';
+        });
+        
+        document.getElementById('switch-to-student-login').addEventListener('click', function() {
+            deptLoginSection.style.display = 'none';
+            studentLoginSection.style.display = 'block';
+        });
+        
+        // Check for saved credentials on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            const savedUsername = localStorage.getItem('savedUsername');
+            const savedPassword = localStorage.getItem('savedPassword');
+            const savedUserType = localStorage.getItem('savedUserType');
+            
+            if (savedUsername && savedPassword && savedUserType) {
+                if (savedUserType === 'student') {
+                    document.getElementById('student-username').value = savedUsername;
+                    document.getElementById('student-password').value = savedPassword;
+                    rememberMe.checked = true;
+                    studentLoginSection.style.display = 'block';
+                    deptLoginSection.style.display = 'none';
+                } else {
+                    document.getElementById('dept-name').value = savedUserType;
+                    document.getElementById('dept-password').value = savedPassword;
+                    studentLoginSection.style.display = 'none';
+                    deptLoginSection.style.display = 'block';
+                }
+            }
+            
+            // Initialize sample data
+            initializeSampleData();
+            
+            // Set up modal close buttons
+            closeModalButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    rejectionModal.style.display = 'none';
+                    imageModal.style.display = 'none';
+                    paymentModal.style.display = 'none';
+                });
+            });
+            
+            // Close modal when clicking outside
+            window.addEventListener('click', function(event) {
+                if (event.target === rejectionModal) {
+                    rejectionModal.style.display = 'none';
+                }
+                if (event.target === imageModal) {
+                    imageModal.style.display = 'none';
+                }
+                if (event.target === paymentModal) {
+                    paymentModal.style.display = 'none';
+                }
+            });
+            
+            // Profile image change handler
+            changeProfileBtn.addEventListener('click', function() {
+                profileImageInput.click();
+            });
+            
+            profileImageInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    uploadProfileImage(file);
+                }
+            });
+            
+            // Payment proof preview
+            document.getElementById('payment-proof').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file && file.type.match('image.*')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        document.getElementById('payment-preview').src = e.target.result;
+                        document.getElementById('payment-preview').style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            // Faculty filter change handler
+            facultyFilter.addEventListener('change', function() {
+                filterStudentsByFaculty('pending-clearance-items', this.value);
+            });
+            
+            clearedFacultyFilter.addEventListener('change', function() {
+                filterStudentsByFaculty('cleared-students-items', this.value);
+            });
+        });
+        
+        // Filter students by faculty
+        function filterStudentsByFaculty(containerId, faculty) {
+            const container = document.getElementById(containerId);
+            const items = container.querySelectorAll('.clearance-item');
+            
+            items.forEach(item => {
+                const itemFaculty = item.getAttribute('data-faculty');
+                if (faculty === 'all' || itemFaculty === faculty) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+        
+        // Student login form submission
+        studentLoginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('student-username').value.trim();
+            const password = document.getElementById('student-password').value.trim();
+            const firebaseKey = toFirebaseKey(username);
+            
+            // Show loading spinner
+            loginSpinner.style.display = 'block';
+            studentLoginForm.querySelector('button[type="submit"]').disabled = true;
+            
+            // Save credentials if "Remember me" is checked
+            if (rememberMe.checked) {
+                localStorage.setItem('savedUsername', username);
+                localStorage.setItem('savedPassword', password);
+                localStorage.setItem('savedUserType', 'student');
+            } else {
+                localStorage.removeItem('savedUsername');
+                localStorage.removeItem('savedPassword');
+                localStorage.removeItem('savedUserType');
+            }
+            
+            // Check user in Firebase
+            database.ref('users/' + firebaseKey).once('value')
+                .then((snapshot) => {
+                    const user = snapshot.val();
+                    
+                    if (user && user.password === password && user.type === 'student') {
+                        currentUser = firebaseKey;
+                        
+                        // Student login
+                        studentLoginSection.style.display = 'none';
+                        deptLoginSection.style.display = 'none';
+                        dashboardSection.style.display = 'block';
+                        studentDashboard.style.display = 'block';
+                        deptDashboard.style.display = 'none';
+                        
+                        // Load student data
+                        loadStudentData(user);
+                    } else {
+                        showAlert(loginAlert, "error", "Invalid username or password.");
+                    }
+                    
+                    loginSpinner.style.display = 'none';
+                    studentLoginForm.querySelector('button[type="submit"]').disabled = false;
+                })
+                .catch((error) => {
+                    console.error("Error fetching user data:", error);
+                    showAlert(loginAlert, "error", "Error connecting to database. Please try again.");
+                    loginSpinner.style.display = 'none';
+                    studentLoginForm.querySelector('button[type="submit"]').disabled = false;
+                });
+        });
+        
+        // Department login form submission
+        deptLoginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const deptName = document.getElementById('dept-name').value;
+            const password = document.getElementById('dept-password').value.trim();
+            
+            // Show loading spinner
+            deptLoginSpinner.style.display = 'block';
+            deptLoginForm.querySelector('button[type="submit"]').disabled = true;
+            
+            // Save credentials
+            localStorage.setItem('savedUsername', deptName);
+            localStorage.setItem('savedPassword', password);
+            localStorage.setItem('savedUserType', deptName);
+            
+            // Check department in Firebase
+            database.ref('departments/' + deptName).once('value')
+                .then((snapshot) => {
+                    const dept = snapshot.val();
+                    
+                    if (dept && dept.password === password) {
+                        currentDept = deptName;
+                        
+                        // Department login
+                        studentLoginSection.style.display = 'none';
+                        deptLoginSection.style.display = 'none';
+                        dashboardSection.style.display = 'block';
+                        studentDashboard.style.display = 'none';
+                        deptDashboard.style.display = 'block';
+                        
+                        // Set department title
+                        document.getElementById('dept-title').textContent = `${deptName.charAt(0).toUpperCase() + deptName.slice(1)} Department Dashboard`;
+                        
+                        // Load department data
+                        loadDepartmentData(deptName);
+                        
+                        // Show motivation message randomly
+                        if (Math.random() > 0.7) {
+                            deptMotivation.style.display = 'block';
+                        }
+                    } else {
+                        showAlert(deptLoginAlert, "error", "Invalid department name or password.");
+                    }
+                    
+                    deptLoginSpinner.style.display = 'none';
+                    deptLoginForm.querySelector('button[type="submit"]').disabled = false;
+                })
+                .catch((error) => {
+                    console.error("Error fetching department data:", error);
+                    showAlert(deptLoginAlert, "error", "Error connecting to database. Please try again.");
+                    deptLoginSpinner.style.display = 'none';
+                    deptLoginForm.querySelector('button[type="submit"]').disabled = false;
+                });
+        });
+        
+        // Profile form submission
+        profileForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('student-email-input').value.trim();
+            const phone = document.getElementById('student-phone-input').value.trim();
+            
+            // Show loading spinner
+            profileSpinner.style.display = 'block';
+            profileForm.querySelector('button[type="submit"]').disabled = true;
+            
+            // Update user data in Firebase
+            database.ref('users/' + currentUser).update({
+                email: email,
+                phone: phone
+            })
+            .then(() => {
+                // Show success message
+                alert("Profile updated successfully!");
+                
+                // Reload student data to reflect changes
+                return database.ref('users/' + currentUser).once('value');
+            })
+            .then((snapshot) => {
+                loadStudentData(snapshot.val());
+                profileSpinner.style.display = 'none';
+                profileForm.querySelector('button[type="submit"]').disabled = false;
+            })
+            .catch((error) => {
+                console.error("Error updating profile:", error);
+                alert("Error updating profile. Please try again.");
+                profileSpinner.style.display = 'none';
+                profileForm.querySelector('button[type="submit"]').disabled = false;
+            });
+        });
+        
+        // Upload profile image
+        function uploadProfileImage(file) {
+            const storageRef = storage.ref(`profile_images/${currentUser}`);
+            const uploadTask = storageRef.put(file);
+            
+            uploadTask.on('state_changed',
+                (snapshot) => {
+                    // Progress monitoring can be added here
+                },
+                (error) => {
+                    console.error("Error uploading image:", error);
+                    alert("Error uploading profile image. Please try again.");
+                },
+                () => {
+                    // Upload completed successfully
+                    uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
+                        // Update user profile with the new image URL
+                        database.ref('users/' + currentUser).update({
+                            profileImage: downloadURL
+                        })
+                        .then(() => {
+                            // Update the profile image display
+                            profileImage.src = downloadURL;
+                            alert("Profile image updated successfully!");
+                        })
+                        .catch((error) => {
+                            console.error("Error updating profile image URL:", error);
+                            alert("Error updating profile. Please try again.");
+                        });
+                    });
+                }
+            );
+        }
+        
+        // Load student data
+        function loadStudentData(user) {
+            // Set profile information
+            document.getElementById('student-name').textContent = user.name;
+            document.getElementById('student-reg').textContent = fromFirebaseKey(currentUser);
+            document.getElementById('student-program').textContent = user.program;
+            document.getElementById('student-faculty').textContent = user.faculty || 'Not specified';
+            document.getElementById('student-year').textContent = user.year;
+            document.getElementById('student-email-input').value = user.email || '';
+            document.getElementById('student-phone-input').value = user.phone || '';
+            
+            // Set profile image
+            if (user.profileImage) {
+                profileImage.src = user.profileImage;
+            } else {
+                profileImage.src = "https://via.placeholder.com/150?text=Profile";
+            }
+            
+            // Load clearance status
+            const clearanceItems = document.getElementById('student-clearance-items');
+            clearanceItems.innerHTML = '';
+            
+            const departments = [
+                { id: 'finance', name: 'Finance Department' },
+                { id: 'library', name: 'Library Department' },
+                { id: 'academic', name: 'Academic Department' },
+                { id: 'admin', name: 'Administration' },
+                { id: 'hostel', name: 'Hostel Department' },
+                { id: 'sports', name: 'Sports Department' },
+                { id: 'health', name: 'Health Center' },
+                { id: 'examinations', name: 'Examinations Office' }
+            ];
+            
+            let allCompleted = true;
+            
+            departments.forEach(dept => {
+                const status = user.clearance && user.clearance[dept.id] ? user.clearance[dept.id].status : 'pending';
+                const comment = user.clearance && user.clearance[dept.id] ? user.clearance[dept.id].comment : '';
+                const rejectionReasons = user.clearance && user.clearance[dept.id] ? user.clearance[dept.id].rejectionReasons : [];
+                const evidenceImages = user.clearance && user.clearance[dept.id] ? user.clearance[dept.id].evidenceImages : [];
+                const paymentProof = user.clearance && user.clearance[dept.id] ? user.clearance[dept.id].paymentProof : null;
+                
+                if (status !== 'completed') {
+                    allCompleted = false;
+                }
+                
+                const item = document.createElement('div');
+                item.className = 'clearance-item';
+                
+                let statusClass = 'status-pending';
+                let statusText = 'Pending';
+                
+                if (status === 'completed') {
+                    statusClass = 'status-completed';
+                    statusText = 'Completed';
+                } else if (status === 'rejected') {
+                    statusClass = 'status-rejected';
+                    statusText = 'Rejected';
+                }
+                
+                // Create department info section
+                let deptInfo = '';
+                if (status === 'rejected' && rejectionReasons && rejectionReasons.length > 0) {
+                    deptInfo += '<div class="rejection-reasons">';
+                    deptInfo += '<p><strong>Rejection Reasons:</strong></p>';
+                    rejectionReasons.forEach(reason => {
+                        deptInfo += `<div class="rejection-reason">${reason.title}: ${reason.description}</div>`;
+                    });
+                    if (comment) {
+                        deptInfo += `<p class="rejection-comment"><strong>Additional Comment:</strong> ${comment}</p>`;
+                    }
+                    deptInfo += '</div>';
+                }
+                
+                // Add evidence images if available
+                if (evidenceImages && evidenceImages.length > 0) {
+                    deptInfo += '<div class="evidence-images"><p><strong>Evidence:</strong></p>';
+                    evidenceImages.forEach(image => {
+                        deptInfo += `<img src="${image}" class="evidence-image" onclick="showImageModal('${image}')">`;
+                    });
+                    deptInfo += '</div>';
+                }
+                
+                // Add payment proof if available
+                if (paymentProof) {
+                    deptInfo += '<div class="payment-proof-section">';
+                    deptInfo += '<p><strong>Payment Proof:</strong></p>';
+                    deptInfo += `<img src="${paymentProof}" class="evidence-image" onclick="showImageModal('${paymentProof}')">`;
+                    deptInfo += '</div>';
+                }
+                
+                // Create action buttons
+                let actionButtons = '';
+                if (status === 'pending') {
+                    actionButtons = `<button class="action-btn nudge-btn" data-dept="${dept.id}">Nudge</button>`;
+                    
+                    // Special case for finance department - show payment upload option
+                    if (dept.id === 'finance') {
+                        actionButtons += `<button class="action-btn" data-dept="${dept.id}" id="upload-payment-btn" style="background-color: var(--primary-blue);">Upload Payment</button>`;
+                    }
+                } else if (status === 'rejected') {
+                    actionButtons = `<button class="action-btn" data-dept="${dept.id}" id="view-rejection-btn" style="background-color: var(--primary-blue);">View Details</button>`;
+                }
+                
+                item.innerHTML = `
+                    <div>
+                        <strong>${dept.name}</strong>
+                        ${deptInfo}
+                    </div>
+                    <div>
+                        <span class="status ${statusClass}">${statusText}</span>
+                        <div class="action-buttons">
+                            ${actionButtons}
+                        </div>
+                    </div>
+                `;
+                
+                clearanceItems.appendChild(item);
+            });
+            
+            // Show congratulations message if all departments are completed
+            if (allCompleted) {
+                congratsMessage.style.display = 'block';
+                sendCompletionMessage(currentUser);
+            } else {
+                congratsMessage.style.display = 'none';
+            }
+            
+            // Add event listeners to nudge buttons
+            document.querySelectorAll('.nudge-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const dept = this.getAttribute('data-dept');
+                    nudgeDepartment(dept);
+                });
+            });
+            
+            // Add event listeners to view rejection buttons
+            document.querySelectorAll('#view-rejection-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const dept = this.getAttribute('data-dept');
+                    showRejectionDetails(dept);
+                });
+            });
+            
+            // Add event listeners to upload payment buttons
+            document.querySelectorAll('#upload-payment-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    paymentModal.style.display = 'block';
+                });
+            });
+        }
+        
+        // Show rejection details in modal
+        function showRejectionDetails(dept) {
+            database.ref('users/' + currentUser).once('value')
+                .then((snapshot) => {
+                    const user = snapshot.val();
+                    const clearanceInfo = user.clearance && user.clearance[dept] ? user.clearance[dept] : null;
+                    
+                    if (!clearanceInfo || clearanceInfo.status !== 'rejected') {
+                        alert('No rejection details found for this department.');
+                        return;
+                    }
+                    
+                    // Display rejection details
+                    let content = '';
+                    
+                    if (clearanceInfo.rejectionReasons && clearanceInfo.rejectionReasons.length > 0) {
+                        content += '<div class="rejection-reasons">';
+                        content += '<h4>Rejection Reasons:</h4>';
+                        clearanceInfo.rejectionReasons.forEach(reason => {
+                            content += `<div class="rejection-reason"><strong>${reason.title}:</strong> ${reason.description}</div>`;
+                        });
+                        content += '</div>';
+                    }
+                    
+                    if (clearanceInfo.comment) {
+                        content += `<div class="alert alert-info"><strong>Additional Comment:</strong> ${clearanceInfo.comment}</div>`;
+                    }
+                    
+                    // Show evidence images if available
+                    if (clearanceInfo.evidenceImages && clearanceInfo.evidenceImages.length > 0) {
+                        content += '<div class="evidence-section"><h4>Evidence:</h4>';
+                        content += '<div class="evidence-images">';
+                        clearanceInfo.evidenceImages.forEach(image => {
+                            content += `<img src="${image}" class="evidence-image" onclick="showImageModal('${image}')">`;
+                        });
+                        content += '</div></div>';
+                    }
+                    
+                    // Show payment proof if available
+                    if (clearanceInfo.paymentProof) {
+                        content += '<div class="payment-proof-section"><h4>Payment Proof:</h4>';
+                        content += `<img src="${clearanceInfo.paymentProof}" class="evidence-image" onclick="showImageModal('${clearanceInfo.paymentProof}')">`;
+                        content += '</div>';
+                    }
+                    
+                    rejectionDetailsContent.innerHTML = content;
+                    rejectionModal.style.display = 'block';
+                    
+                    // Set up re-clearance request button
+                    requestReclearanceBtn.setAttribute('data-dept', dept);
+                    requestReclearanceBtn.onclick = function() {
+                        requestReclearance(dept);
+                    };
+                })
+                .catch((error) => {
+                    console.error("Error loading rejection details:", error);
+                    alert("Error loading rejection details. Please try again.");
+                });
+        }
+        
+        // Request re-clearance
+        function requestReclearance(dept) {
+            database.ref(`users/${currentUser}/clearance/${dept}`).update({
+                status: 'pending',
+                comment: '',
+                rejectionReasons: null
+            })
+            .then(() => {
+                alert('Re-clearance request submitted successfully!');
+                rejectionModal.style.display = 'none';
+                
+                // Reload student data
+                return database.ref('users/' + currentUser).once('value');
+            })
+            .then((snapshot) => {
+                loadStudentData(snapshot.val());
+            })
+            .catch((error) => {
+                console.error("Error requesting re-clearance:", error);
+                alert("Error requesting re-clearance. Please try again.");
+            });
+        }
+        
+        // Show image in modal
+        window.showImageModal = function(imageUrl) {
+            modalImage.src = imageUrl;
+            imageModal.style.display = 'block';
+        };
+        
+        // Load department data
+        function loadDepartmentData(dept) {
+            const pendingItems = document.getElementById('pending-clearance-items');
+            const clearedItems = document.getElementById('cleared-students-items');
+            const deptInfo = document.getElementById('dept-specific-info');
+            
+            pendingItems.innerHTML = '';
+            clearedItems.innerHTML = '';
+            
+            // Load department specific information
+            loadDepartmentSpecificInfo(dept, deptInfo);
+            
+            // Update faculty filters
+            updateFacultyFilters();
+            
+            // Find students with pending/cleared status in this department
+            database.ref('users').once('value')
+                .then((snapshot) => {
+                    const users = snapshot.val();
+                    
+                    for (const firebaseKey in users) {
+                        const user = users[firebaseKey];
+                        
+                        if (user.type === 'student') {
+                            const status = user.clearance && user.clearance[dept] ? user.clearance[dept].status : 'pending';
+                            const comment = user.clearance && user.clearance[dept] ? user.clearance[dept].comment : '';
+                            const rejectionReasons = user.clearance && user.clearance[dept] ? user.clearance[dept].rejectionReasons : [];
+                            const evidenceImages = user.clearance && user.clearance[dept] ? user.clearance[dept].evidenceImages : [];
+                            const displayReg = fromFirebaseKey(firebaseKey);
+                            const faculty = user.faculty || 'Other';
+                            
+                            const item = document.createElement('div');
+                            item.className = 'clearance-item';
+                            item.setAttribute('data-faculty', faculty);
+                            
+                            // Get faculty badge class
+                            let facultyBadgeClass = 'faculty-badge-default';
+                            if (faculty === 'BBIT') facultyBadgeClass = 'faculty-badge-bbit';
+                            if (faculty === 'FAMECO') facultyBadgeClass = 'faculty-badge-fameco';
+                            
+                            if (status === 'pending') {
+                                let studentInfo = `<div><strong>${user.name}</strong> <span class="faculty-badge ${facultyBadgeClass}">${faculty}</span><p>${displayReg} - ${user.program}</p>`;
+                                studentInfo += getDepartmentSpecificStudentInfo(dept, user);
+                                studentInfo += '</div>';
+                                
+                                let actionButtons = `
+                                    <button class="action-btn approve-btn" data-reg="${firebaseKey}">Approve</button>
+                                    <button class="action-btn reject-btn" data-reg="${firebaseKey}">Reject</button>
+                                `;
+                                
+                                // Add reverse decision button if previously decided
+                                if (user.clearance && user.clearance[dept] && user.clearance[dept].previousDecision) {
+                                    actionButtons += `
+                                        <button class="action-btn" data-reg="${firebaseKey}" style="background-color: #9c27b0;">Reverse Decision</button>
+                                    `;
+                                }
+                                
+                                item.innerHTML = `
+                                    ${studentInfo}
+                                    <div class="action-buttons">
+                                        ${actionButtons}
+                                    </div>
+                                `;
+                                pendingItems.appendChild(item);
+                            } else {
+                                let statusClass = 'status-completed';
+                                let statusText = 'Completed';
+                                
+                                if (status === 'rejected') {
+                                    statusClass = 'status-rejected';
+                                    statusText = 'Rejected';
+                                }
+                                
+                                let details = '';
+                                if (status === 'rejected' && rejectionReasons && rejectionReasons.length > 0) {
+                                    details += '<div class="rejection-reasons">';
+                                    details += '<p><strong>Rejection Reasons:</strong></p>';
+                                    rejectionReasons.forEach(reason => {
+                                        details += `<div class="rejection-reason">${reason.title}: ${reason.description}</div>`;
+                                    });
+                                    if (comment) {
+                                        details += `<p class="rejection-comment"><strong>Additional Comment:</strong> ${comment}</p>`;
+                                    }
+                                    details += '</div>';
+                                }
+                                
+                                // Add evidence images if available
+                                if (evidenceImages && evidenceImages.length > 0) {
+                                    details += '<div class="evidence-images"><p><strong>Evidence:</strong></p>';
+                                    evidenceImages.forEach(image => {
+                                        details += `<img src="${image}" class="evidence-image" onclick="showImageModal('${image}')">`;
+                                    });
+                                    details += '</div>';
+                                }
+                                
+                                let actionButtons = '';
+                                if (status === 'completed') {
+                                    actionButtons = `<button class="action-btn" data-reg="${firebaseKey}" style="background-color: var(--primary-red);">Revoke</button>`;
+                                } else if (status === 'rejected') {
+                                    actionButtons = `<button class="action-btn approve-btn" data-reg="${firebaseKey}">Approve Now</button>`;
+                                }
+                                
+                                item.innerHTML = `
+                                    <div>
+                                        <strong>${user.name}</strong> <span class="faculty-badge ${facultyBadgeClass}">${faculty}</span>
+                                        <p>${displayReg} - ${user.program}</p>
+                                        ${comment ? `<p class="comment">${comment}</p>` : ''}
+                                        ${details}
+                                    </div>
+                                    <div>
+                                        <span class="status ${statusClass}">${statusText}</span>
+                                        <div class="action-buttons">
+                                            ${actionButtons}
+                                        </div>
+                                    </div>
+                                `;
+                                clearedItems.appendChild(item);
+                            }
+                        }
+                    }
+                    
+                    // Add event listeners to approve/reject buttons
+                    document.querySelectorAll('.approve-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const regNo = this.getAttribute('data-reg');
+                            approveClearance(regNo, dept);
+                        });
+                    });
+                    
+                    document.querySelectorAll('.reject-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const regNo = this.getAttribute('data-reg');
+                            showRejectionForm(regNo, dept);
+                        });
+                    });
+                    
+                    // Add event listeners to revoke buttons
+                    document.querySelectorAll('.action-btn[style*="background-color: var(--primary-red)"]').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const regNo = this.getAttribute('data-reg');
+                            if (confirm("Are you sure you want to revoke this student's clearance?")) {
+                                revokeClearance(regNo, dept);
+                            }
+                        });
+                    });
+                    
+                    // Add event listeners to reverse decision buttons
+                    document.querySelectorAll('.action-btn[style*="background-color: #9c27b0"]').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const regNo = this.getAttribute('data-reg');
+                            reverseDecision(regNo, dept);
+                        });
+                    });
+                })
+                .catch((error) => {
+                    console.error("Error loading department data:", error);
+                    alert("Error loading department data. Please try again.");
+                });
+        }
+        
+        // Update faculty filters with all available faculties
+        function updateFacultyFilters() {
+            database.ref('faculties').once('value')
+                .then((snapshot) => {
+                    const faculties = snapshot.val();
+                    if (faculties) {
+                        allFaculties = Object.keys(faculties);
+                        
+                        // Clear existing options except "All Faculties"
+                        facultyFilter.innerHTML = '<option value="all">All Faculties</option>';
+                        clearedFacultyFilter.innerHTML = '<option value="all">All Faculties</option>';
+                        
+                        // Add faculty options
+                        allFaculties.forEach(faculty => {
+                            const option = document.createElement('option');
+                            option.value = faculty;
+                            option.textContent = faculty;
+                            facultyFilter.appendChild(option.cloneNode(true));
+                            clearedFacultyFilter.appendChild(option);
+                        });
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error loading faculties:", error);
+                });
+        }
+        
+        // Show rejection form for department
+        function showRejectionForm(regNo, dept) {
+            const rejectionReasons = getDefaultRejectionReasons(dept);
+            let formContent = '<form id="rejection-form">';
+            formContent += '<h4>Select Rejection Reasons:</h4>';
+            
+            rejectionReasons.forEach(reason => {
+                formContent += `
+                    <div class="form-group" style="display: flex; align-items: center;">
+                        <input type="checkbox" id="reason-${reason.id}" name="reasons" value="${reason.id}" style="width: auto; margin-right: 10px;">
+                        <label for="reason-${reason.id}" style="display: inline;">${reason.title}: ${reason.description}</label>
+                    </div>
+                `;
+            });
+            
+            formContent += `
+                <div class="form-group">
+                    <label for="additional-comment">Additional Comment (Optional):</label>
+                    <textarea id="additional-comment" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Upload Evidence Images (Optional):</label>
+                    <input type="file" id="evidence-images" accept="image/*" multiple>
+                    <div id="evidence-preview" style="margin-top: 10px;"></div>
+                </div>
+                <button type="submit" class="btn">Submit Rejection</button>
+            </form>
+            `;
+            
+            rejectionDetailsContent.innerHTML = formContent;
+            rejectionModal.style.display = 'block';
+            
+            // Set up evidence image preview
+            document.getElementById('evidence-images').addEventListener('change', function(e) {
+                const files = e.target.files;
+                const preview = document.getElementById('evidence-preview');
+                preview.innerHTML = '';
+                
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    if (file.type.match('image.*')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const img = document.createElement('img');
+                            img.src = e.target.result;
+                            img.style.width = '100px';
+                            img.style.height = '100px';
+                            img.style.objectFit = 'cover';
+                            img.style.marginRight = '5px';
+                            img.style.marginBottom = '5px';
+                            preview.appendChild(img);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                }
+            });
+            
+            // Set up form submission
+            document.getElementById('rejection-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const selectedReasons = [];
+                document.querySelectorAll('input[name="reasons"]:checked').forEach(checkbox => {
+                    const reasonId = checkbox.value;
+                    const reason = rejectionReasons.find(r => r.id === reasonId);
+                    if (reason) {
+                        selectedReasons.push({
+                            id: reason.id,
+                            title: reason.title,
+                            description: reason.description
+                        });
+                    }
+                });
+                
+                const additionalComment = document.getElementById('additional-comment').value.trim();
+                const evidenceFiles = document.getElementById('evidence-images').files;
+                
+                if (selectedReasons.length === 0) {
+                    alert('Please select at least one rejection reason.');
+                    return;
+                }
+                
+                // Upload evidence images first if any
+                if (evidenceFiles.length > 0) {
+                    uploadEvidenceImages(evidenceFiles, regNo, dept, selectedReasons, additionalComment);
+                } else {
+                    rejectClearance(regNo, dept, selectedReasons, additionalComment, []);
+                }
+            });
+            
+            // Set the title
+            document.querySelector('#rejection-modal h3').textContent = 'Reject Clearance';
+            
+            // Hide the re-clearance button
+            requestReclearanceBtn.style.display = 'none';
+        }
+        
+        // Get default rejection reasons for department
+        function getDefaultRejectionReasons(dept) {
+            const reasons = [];
+            
+            switch(dept) {
+                case 'finance':
+                    reasons.push(
+                        { id: 'unpaid-fees', title: 'Unpaid Fees', description: 'Outstanding tuition fees balance' },
+                        { id: 'missing-docs', title: 'Missing Documents', description: 'Required financial documents not submitted' },
+                        { id: 'invalid-payment', title: 'Invalid Payment', description: 'Payment proof not verifiable or insufficient' }
+                    );
+                    break;
+                    
+                case 'library':
+                    reasons.push(
+                        { id: 'unreturned-books', title: 'Unreturned Books', description: 'Books not returned to the library' },
+                        { id: 'unpaid-fines', title: 'Unpaid Fines', description: 'Outstanding fines for late returns' },
+                        { id: 'damaged-books', title: 'Damaged Books', description: 'Books returned in damaged condition' }
+                    );
+                    break;
+                    
+                case 'academic':
+                    reasons.push(
+                        { id: 'low-attendance', title: 'Low Attendance', description: 'Attendance below required threshold' },
+                        { id: 'incomplete-grades', title: 'Incomplete Grades', description: 'Missing grades in some courses' },
+                        { id: 'academic-warning', title: 'Academic Warning', description: 'Student has unresolved academic warnings' }
+                    );
+                    break;
+                    
+                case 'hostel':
+                    reasons.push(
+                        { id: 'room-damage', title: 'Room Damage', description: 'Damage to hostel property found' },
+                        { id: 'unpaid-hostel-fees', title: 'Unpaid Hostel Fees', description: 'Outstanding hostel fees balance' },
+                        { id: 'inspection-failed', title: 'Inspection Failed', description: 'Room inspection not passed' }
+                    );
+                    break;
+                    
+                case 'sports':
+                    reasons.push(
+                        { id: 'equipment-not-returned', title: 'Equipment Not Returned', description: 'Sports equipment not returned' },
+                        { id: 'participation-low', title: 'Low Participation', description: 'Insufficient participation in sports' },
+                        { id: 'sports-fees-unpaid', title: 'Unpaid Sports Fees', description: 'Outstanding sports fees' }
+                    );
+                    break;
+                    
+                case 'health':
+                    reasons.push(
+                        { id: 'insurance-expired', title: 'Insurance Expired', description: 'Medical insurance not up to date' },
+                        { id: 'medical-reports-missing', title: 'Missing Reports', description: 'Required medical reports not submitted' },
+                        { id: 'medical-bills-unpaid', title: 'Unpaid Bills', description: 'Outstanding medical bills' }
+                    );
+                    break;
+                    
+                case 'examinations':
+                    reasons.push(
+                        { id: 'irregularities', title: 'Examination Irregularities', description: 'Pending examination irregularities' },
+                        { id: 'exam-fees-unpaid', title: 'Unpaid Exam Fees', description: 'Outstanding examination fees' },
+                        { id: 'documents-missing', title: 'Missing Documents', description: 'Required examination documents not submitted' }
+                    );
+                    break;
+                    
+                default:
+                    reasons.push(
+                        { id: 'general-1', title: 'General Requirement', description: 'General clearance requirement not met' },
+                        { id: 'general-2', title: 'Documentation', description: 'Required documentation incomplete' },
+                        { id: 'general-3', title: 'Payment', description: 'Outstanding payments' }
+                    );
+            }
+            
+            return reasons;
+        }
+        
+        // Upload evidence images
+        function uploadEvidenceImages(files, regNo, dept, reasons, comment) {
+            const uploadPromises = [];
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.type.match('image.*')) {
+                    const storageRef = storage.ref(`clearance_evidence/${regNo}/${dept}/${file.name}`);
+                    const uploadTask = storageRef.put(file);
+                    
+                    uploadPromises.push(
+                        new Promise((resolve, reject) => {
+                            uploadTask.on('state_changed',
+                                null,
+                                (error) => reject(error),
+                                () => {
+                                    uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
+                                        resolve(downloadURL);
+                                    });
+                                }
+                            );
+                        })
+                    );
+                }
+            }
+            
+            Promise.all(uploadPromises)
+                .then((imageUrls) => {
+                    rejectClearance(regNo, dept, reasons, comment, imageUrls);
+                })
+                .catch((error) => {
+                    console.error("Error uploading evidence images:", error);
+                    alert("Error uploading evidence images. Please try again.");
+                });
+        }
+        
+        // Load department specific information
+        function loadDepartmentSpecificInfo(dept, container) {
+            container.innerHTML = '';
+            
+            switch(dept) {
+                case 'finance':
+                    container.innerHTML = `
+                        <p><strong>Finance Clearance Requirements:</strong></p>
+                        <ul>
+                            <li>All tuition fees must be paid in full</li>
+                            <li>No outstanding balances from previous semesters</li>
+                            <li>All financial aid documents must be submitted</li>
+                        </ul>
+                        <p><strong>Common Rejection Reasons:</strong></p>
+                        <ul>
+                            <li>Outstanding tuition fees balance</li>
+                            <li>Required financial documents not submitted</li>
+                            <li>Payment proof not verifiable or insufficient</li>
+                        </ul>
+                    `;
+                    break;
+                    
+                case 'library':
+                    container.innerHTML = `
+                        <p><strong>Library Clearance Requirements:</strong></p>
+                        <ul>
+                            <li>All borrowed books must be returned</li>
+                            <li>No outstanding fines for late returns</li>
+                            <li>All research materials must be properly checked in</li>
+                        </ul>
+                        <p><strong>Common Rejection Reasons:</strong></p>
+                        <ul>
+                            <li>Books not returned to the library</li>
+                            <li>Outstanding fines for late returns</li>
+                            <li>Books returned in damaged condition</li>
+                        </ul>
+                    `;
+                    break;
+                    
+                case 'academic':
+                    container.innerHTML = `
+                        <p><strong>Academic Clearance Requirements:</strong></p>
+                        <ul>
+                            <li>Minimum attendance of 75% in all courses</li>
+                            <li>No incomplete grades in any course</li>
+                            <li>All academic warnings must be resolved</li>
+                        </ul>
+                        <p><strong>Common Rejection Reasons:</strong></p>
+                        <ul>
+                            <li>Attendance below required threshold</li>
+                            <li>Missing grades in some courses</li>
+                            <li>Unresolved academic warnings</li>
+                        </ul>
+                    `;
+                    break;
+                    
+                case 'hostel':
+                    container.innerHTML = `
+                        <p><strong>Hostel Clearance Requirements:</strong></p>
+                        <ul>
+                            <li>Room must be inspected and cleared</li>
+                            <li>All hostel fees must be paid</li>
+                            <li>No damages to hostel property</li>
+                        </ul>
+                        <p><strong>Common Rejection Reasons:</strong></p>
+                        <ul>
+                            <li>Damage to hostel property found</li>
+                            <li>Outstanding hostel fees balance</li>
+                            <li>Room inspection not passed</li>
+                        </ul>
+                    `;
+                    break;
+                    
+                case 'sports':
+                    container.innerHTML = `
+                        <p><strong>Sports Clearance Requirements:</strong></p>
+                        <ul>
+                            <li>All sports equipment must be returned</li>
+                            <li>Participation in required sports activities</li>
+                            <li>No outstanding sports fees</li>
+                        </ul>
+                        <p><strong>Common Rejection Reasons:</strong></p>
+                        <ul>
+                            <li>Sports equipment not returned</li>
+                            <li>Insufficient participation in sports</li>
+                            <li>Outstanding sports fees</li>
+                        </ul>
+                    `;
+                    break;
+                    
+                case 'health':
+                    container.innerHTML = `
+                        <p><strong>Health Center Clearance Requirements:</strong></p>
+                        <ul>
+                            <li>Medical insurance must be up to date</li>
+                            <li>All medical reports must be submitted</li>
+                            <li>No outstanding medical bills</li>
+                        </ul>
+                        <p><strong>Common Rejection Reasons:</strong></p>
+                        <ul>
+                            <li>Medical insurance not up to date</li>
+                            <li>Required medical reports not submitted</li>
+                            <li>Outstanding medical bills</li>
+                        </ul>
+                    `;
+                    break;
+                    
+                case 'examinations':
+                    container.innerHTML = `
+                        <p><strong>Examinations Clearance Requirements:</strong></p>
+                        <ul>
+                            <li>No examination irregularities</li>
+                            <li>All examination fees must be paid</li>
+                            <li>All required examination documents submitted</li>
+                        </ul>
+                        <p><strong>Common Rejection Reasons:</strong></p>
+                        <ul>
+                            <li>Pending examination irregularities</li>
+                            <li>Outstanding examination fees</li>
+                            <li>Required examination documents not submitted</li>
+                        </ul>
+                    `;
+                    break;
+                    
+                default:
+                    container.innerHTML = `
+                        <p><strong>General Clearance Requirements:</strong></p>
+                        <ul>
+                            <li>All department-specific requirements must be met</li>
+                            <li>No outstanding issues with the department</li>
+                            <li>All necessary documentation submitted</li>
+                        </ul>
+                        <p><strong>Common Rejection Reasons:</strong></p>
+                        <ul>
+                            <li>General clearance requirement not met</li>
+                            <li>Required documentation incomplete</li>
+                            <li>Outstanding payments or issues</li>
+                        </ul>
+                    `;
+            }
+        }
+        
+        // Get department specific student information
+        function getDepartmentSpecificStudentInfo(dept, user) {
+            if (!user.departmentInfo) return '';
+            
+            let html = '';
+            
+            switch(dept) {
+                case 'library':
+                    if (user.departmentInfo.library && user.departmentInfo.library.unreturnedBooks) {
+                        html += '<div class="unreturned-books"><p><strong>Unreturned Books:</strong></p>';
+                        user.departmentInfo.library.unreturnedBooks.forEach(book => {
+                            html += `
+                                <div class="book-item">
+                                    <img src="${book.image || 'https://via.placeholder.com/50x70?text=Book'}" class="book-image" onclick="showImageModal('${book.image || 'https://via.placeholder.com/50x70?text=Book'}')">
+                                    <div class="book-info">
+                                        <strong>${book.title}</strong><br>
+                                        Author: ${book.author}<br>
+                                        Due: ${book.dueDate}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    }
+                    break;
+                    
+                case 'academic':
+                    if (user.departmentInfo.academic && user.departmentInfo.academic.attendance) {
+                        html += '<div class="attendance-records"><p><strong>Attendance Records:</strong></p>';
+                        user.departmentInfo.academic.attendance.forEach(course => {
+                            html += `
+                                <div class="attendance-item">
+                                    <div class="attendance-info">
+                                        <strong>${course.code}: ${course.name}</strong><br>
+                                        Attendance: ${course.attendance}% (Minimum required: 75%)
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    }
+                    
+                    if (user.departmentInfo.academic && user.departmentInfo.academic.grades) {
+                        html += '<div class="grade-records"><p><strong>Grade Records:</strong></p>';
+                        user.departmentInfo.academic.grades.forEach(course => {
+                            html += `
+                                <div class="attendance-item">
+                                    <div class="attendance-info">
+                                        <strong>${course.code}: ${course.name}</strong><br>
+                                        Grade: ${course.grade}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    }
+                    break;
+                    
+                case 'finance':
+                    if (user.departmentInfo.finance && user.departmentInfo.finance.balance) {
+                        html += `<p><strong>Outstanding Balance:</strong> KES ${user.departmentInfo.finance.balance.toLocaleString()}</p>`;
+                    }
+                    break;
+                    
+                case 'hostel':
+                    if (user.departmentInfo.hostel && user.departmentInfo.hostel.damages) {
+                        html += '<div class="hostel-damages"><p><strong>Hostel Damages:</strong></p>';
+                        user.departmentInfo.hostel.damages.forEach(damage => {
+                            html += `
+                                <div class="damage-item">
+                                    <img src="${damage.image || 'https://via.placeholder.com/50x70?text=Damage'}" class="damage-image" onclick="showImageModal('${damage.image || 'https://via.placeholder.com/50x70?text=Damage'}')">
+                                    <div class="damage-info">
+                                        <strong>${damage.item}</strong><br>
+                                        Description: ${damage.description}<br>
+                                        Cost: KES ${damage.cost.toLocaleString()}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    }
+                    break;
+            }
+            
+            return html;
+        }
+        
+        // Approve clearance
+        function approveClearance(regNo, dept) {
+            // Get current user data first
+            database.ref('users/' + regNo).once('value')
+                .then((snapshot) => {
+                    const user = snapshot.val();
+                    const previousStatus = user.clearance && user.clearance[dept] ? user.clearance[dept].status : 'pending';
+                    
+                    const updates = {};
+                    updates[`users/${regNo}/clearance/${dept}/status`] = 'completed';
+                    updates[`users/${regNo}/clearance/${dept}/comment`] = '';
+                    updates[`users/${regNo}/clearance/${dept}/previousDecision`] = previousStatus;
+                    updates[`users/${regNo}/clearance/${dept}/decisionDate`] = new Date().toISOString();
+                    
+                    // Update in Firebase
+                    return database.ref().update(updates);
+                })
+                .then(() => {
+                    // Send SMS notification
+                    return sendSMSNotification(
+                        regNo,
+                        `Your clearance with ${dept} department has been approved.`
+                    );
+                })
+                .then(() => {
+                    alert(`Clearance approved for ${fromFirebaseKey(regNo)}`);
+                    loadDepartmentData(dept);
+                    
+                    // Check if all departments are cleared for this student
+                    return database.ref('users/' + regNo).once('value');
+                })
+                .then((snapshot) => {
+                    const user = snapshot.val();
+                    if (user.clearance) {
+                        const allCleared = Object.values(user.clearance).every(
+                            dept => dept.status === 'completed'
+                        );
+                        
+                        if (allCleared) {
+                            sendCompletionMessage(regNo);
+                        }
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error approving clearance:", error);
+                    alert("Error approving clearance. Please try again.");
+                });
+        }
+        
+        // Reject clearance
+        function rejectClearance(regNo, dept, reasons, comment, evidenceImages) {
+            // Get current user data first
+            database.ref('users/' + regNo).once('value')
+                .then((snapshot) => {
+                    const user = snapshot.val();
+                    const previousStatus = user.clearance && user.clearance[dept] ? user.clearance[dept].status : 'pending';
+                    
+                    const updates = {};
+                    updates[`users/${regNo}/clearance/${dept}/status`] = 'rejected';
+                    updates[`users/${regNo}/clearance/${dept}/rejectionReasons`] = reasons;
+                    updates[`users/${regNo}/clearance/${dept}/comment`] = comment;
+                    updates[`users/${regNo}/clearance/${dept}/evidenceImages`] = evidenceImages;
+                    updates[`users/${regNo}/clearance/${dept}/previousDecision`] = previousStatus;
+                    updates[`users/${regNo}/clearance/${dept}/decisionDate`] = new Date().toISOString();
+                    
+                    // Update in Firebase
+                    return database.ref().update(updates);
+                })
+                .then(() => {
+                    // Send SMS notification
+                    let message = `Your clearance with ${dept} department has been rejected. Reasons: `;
+                    message += reasons.map(r => r.title).join(', ');
+                    
+                    if (comment) {
+                        message += `. Additional comment: ${comment}`;
+                    }
+                    
+                    return sendSMSNotification(regNo, message);
+                })
+                .then(() => {
+                    alert(`Clearance rejected for ${fromFirebaseKey(regNo)}`);
+                    rejectionModal.style.display = 'none';
+                    loadDepartmentData(dept);
+                })
+                .catch((error) => {
+                    console.error("Error rejecting clearance:", error);
+                    alert("Error rejecting clearance. Please try again.");
+                });
+        }
+        
+        // Revoke clearance
+        function revokeClearance(regNo, dept) {
+            // Get current user data first
+            database.ref('users/' + regNo).once('value')
+                .then((snapshot) => {
+                    const user = snapshot.val();
+                    const previousStatus = 'completed'; // Since we're revoking
+                    
+                    const updates = {};
+                    updates[`users/${regNo}/clearance/${dept}/status`] = 'pending';
+                    updates[`users/${regNo}/clearance/${dept}/comment`] = 'Clearance revoked by department';
+                    updates[`users/${regNo}/clearance/${dept}/previousDecision`] = previousStatus;
+                    updates[`users/${regNo}/clearance/${dept}/decisionDate`] = new Date().toISOString();
+                    
+                    // Update in Firebase
+                    return database.ref().update(updates);
+                })
+                .then(() => {
+                    // Send SMS notification
+                    return sendSMSNotification(
+                        regNo,
+                        `Your clearance with ${dept} department has been revoked. Please contact the department for more information.`
+                    );
+                })
+                .then(() => {
+                    alert(`Clearance revoked for ${fromFirebaseKey(regNo)}`);
+                    loadDepartmentData(dept);
+                })
+                .catch((error) => {
+                    console.error("Error revoking clearance:", error);
+                    alert("Error revoking clearance. Please try again.");
+                });
+        }
+        
+        // Reverse decision
+        function reverseDecision(regNo, dept) {
+            // Get current user data first
+            database.ref('users/' + regNo).once('value')
+                .then((snapshot) => {
+                    const user = snapshot.val();
+                    const clearanceInfo = user.clearance && user.clearance[dept] ? user.clearance[dept] : null;
+                    
+                    if (!clearanceInfo || !clearanceInfo.previousDecision) {
+                        alert('No previous decision found to reverse.');
+                        return;
+                    }
+                    
+                    const updates = {};
+                    updates[`users/${regNo}/clearance/${dept}/status`] = clearanceInfo.previousDecision;
+                    updates[`users/${regNo}/clearance/${dept}/previousDecision`] = clearanceInfo.status;
+                    updates[`users/${regNo}/clearance/${dept}/decisionDate`] = new Date().toISOString();
+                    
+                    // Update in Firebase
+                    return database.ref().update(updates);
+                })
+                .then(() => {
+                    // Send SMS notification
+                    return sendSMSNotification(
+                        regNo,
+                        `The decision on your clearance with ${dept} department has been reversed. The status has been set back to its previous state.`
+                    );
+                })
+                .then(() => {
+                    alert(`Decision reversed for ${fromFirebaseKey(regNo)}`);
+                    loadDepartmentData(dept);
+                })
+                .catch((error) => {
+                    console.error("Error reversing decision:", error);
+                    alert("Error reversing decision. Please try again.");
+                });
+        }
+        
+        // Nudge department
+        function nudgeDepartment(dept) {
+            database.ref('users/' + currentUser).once('value')
+                .then((snapshot) => {
+                    const user = snapshot.val();
+                    const deptName = dept.charAt(0).toUpperCase() + dept.slice(1);
+                    
+                    return sendSMSNotification(
+                        `${dept}1`, // Assuming first staff member is the primary contact
+                        `Reminder: ${user.name} (${fromFirebaseKey(currentUser)}) is awaiting clearance from ${deptName} department.`
+                    );
+                })
+                .then(() => {
+                    alert(`Nudge sent to ${dept} department successfully!`);
+                })
+                .catch((error) => {
+                    console.error("Error sending nudge:", error);
+                    alert("Error sending nudge. Please try again.");
+                });
+        }
+        
+        // Payment form submission
+        paymentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const amount = document.getElementById('payment-amount').value;
+            const reference = document.getElementById('payment-reference').value;
+            const date = document.getElementById('payment-date').value;
+            const proofFile = document.getElementById('payment-proof').files[0];
+            
+            if (!proofFile) {
+                alert('Please upload payment proof');
+                return;
+            }
+            
+            // Show loading spinner
+            paymentSpinner.style.display = 'block';
+            paymentForm.querySelector('button[type="submit"]').disabled = true;
+            
+            // Upload payment proof
+            const storageRef = storage.ref(`payment_proofs/${currentUser}/${Date.now()}_${proofFile.name}`);
+            const uploadTask = storageRef.put(proofFile);
+            
+            uploadTask.on('state_changed',
+                null,
+                (error) => {
+                    console.error("Error uploading payment proof:", error);
+                    alert("Error uploading payment proof. Please try again.");
+                    paymentSpinner.style.display = 'none';
+                    paymentForm.querySelector('button[type="submit"]').disabled = false;
+                },
+                () => {
+                    // Upload completed successfully
+                    uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
+                        // Update finance clearance with payment info
+                        const updates = {};
+                        updates[`users/${currentUser}/clearance/finance/paymentProof`] = downloadURL;
+                        updates[`users/${currentUser}/clearance/finance/paymentAmount`] = amount;
+                        updates[`users/${currentUser}/clearance/finance/paymentReference`] = reference;
+                        updates[`users/${currentUser}/clearance/finance/paymentDate`] = date;
+                        
+                        return database.ref().update(updates);
+                    })
+                    .then(() => {
+                        alert('Payment proof submitted successfully!');
+                        paymentModal.style.display = 'none';
+                        paymentForm.reset();
+                        document.getElementById('payment-preview').style.display = 'none';
+                        paymentSpinner.style.display = 'none';
+                        paymentForm.querySelector('button[type="submit"]').disabled = false;
+                        
+                        // Reload student data
+                        return database.ref('users/' + currentUser).once('value');
+                    })
+                    .then((snapshot) => {
+                        loadStudentData(snapshot.val());
+                    })
+                    .catch((error) => {
+                        console.error("Error updating payment info:", error);
+                        alert("Error updating payment info. Please try again.");
+                        paymentSpinner.style.display = 'none';
+                        paymentForm.querySelector('button[type="submit"]').disabled = false;
+                    });
+                }
+            );
+        });
+        
+        // Send SMS notification using Twilio
+        function sendSMSNotification(regNo, message) {
+            console.log(`Attempting to send SMS to ${regNo}`); // Debug log
+
+            return database.ref('users/' + regNo).once('value')
+                .then((snapshot) => {
+                    const user = snapshot.val();
+                    
+                    if (!user.phone) {
+                        console.log('No phone number available for SMS notification');
+                        return Promise.resolve();
+                    }
+                    
+                    // Initialize Twilio client
+                    const client = Twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+                    
+                    return client.messages.create({
+                        body: message,
+                        from: TWILIO_PHONE_NUMBER,
+                        to: user.phone
+                    });
+                })
+                .then(() => {
+                    console.log('SMS sent successfully');
+                })
+                .catch((error) => {
+                    console.error('Failed to send SMS:', error);
+                    // Even if SMS fails, we still proceed with the operation
+                });
+        }
+        
+        // Send completion message when all departments are cleared
+        function sendCompletionMessage(regNo) {
+            return database.ref('users/' + regNo).once('value')
+                .then((snapshot) => {
+                    const user = snapshot.val();
+                    const message = `Congratulations ${user.name}! You have successfully completed all clearance requirements.`;
+                    
+                    return sendSMSNotification(regNo, message);
+                })
+                .then(() => {
+                    console.log('Completion message sent successfully');
+                })
+                .catch((error) => {
+                    console.error('Failed to send completion message:', error);
+                });
+        }
+        
+        // Tab switching
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabId = this.getAttribute('data-tab');
+                
+                // Update active tab
+                this.parentElement.querySelectorAll('.nav-tab').forEach(t => {
+                    t.classList.remove('active');
+                });
+                this.classList.add('active');
+                
+                // Update active content
+                const container = this.closest('.dashboard');
+                container.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                container.querySelector(`#${tabId}`).classList.add('active');
+            });
+        });
+        
+        // Logout buttons
+        document.getElementById('student-logout').addEventListener('click', logout);
+        document.getElementById('dept-logout').addEventListener('click', logout);
+        
+        function logout() {
+            currentUser = null;
+            currentDept = null;
+            studentLoginSection.style.display = 'block';
+            deptLoginSection.style.display = 'none';
+            dashboardSection.style.display = 'none';
+            studentLoginForm.reset();
+            deptLoginForm.reset();
+        }
+        
+        // Show alert message
+        function showAlert(element, type, message) {
+            element.textContent = message;
+            element.className = `alert alert-${type}`;
+            element.style.display = 'block';
+            
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Initialize sample data if database is empty (for first-time setup)
+        function initializeSampleData() {
+            database.ref('users').once('value')
+                .then((snapshot) => {
+                    if (!snapshot.exists()) {
+                        const sampleUsers = {
+                            // Group members as students (using _ instead of / in keys)
+                            "BUS-242-028_2022": { 
+                                password: "BUS-242-028/2022", 
+                                name: "John Doe", 
+                                email: "john.doe@mmu.ac.ke", 
+                                phone: "+254712345678", 
+                                program: "BBIT", 
+                                faculty: "BBIT",
+                                year: 4,
+                                type: "student",
+                                profileImage: "https://randomuser.me/api/portraits/men/1.jpg",
+                                clearance: {
+                                    finance: { status: "pending", comment: "" },
+                                    library: { status: "pending", comment: "" },
+                                    academic: { status: "pending", comment: "" },
+                                    admin: { status: "pending", comment: "" },
+                                    hostel: { status: "pending", comment: "" },
+                                    sports: { status: "pending", comment: "" },
+                                    health: { status: "pending", comment: "" },
+                                    examinations: { status: "pending", comment: "" }
+                                },
+                                departmentInfo: {
+                                    library: {
+                                        unreturnedBooks: [
+                                            {
+                                                title: "Introduction to Algorithms",
+                                                author: "Thomas H. Cormen",
+                                                dueDate: "2023-05-15",
+                                                image: "https://m.media-amazon.com/images/I/41vLer1KbmL._SY425_.jpg"
+                                            }
+                                        ]
+                                    },
+                                    academic: {
+                                        attendance: [
+                                            { code: "BIT 4101", name: "Advanced Database Systems", attendance: 80 },
+                                            { code: "BIT 4102", name: "Software Engineering", attendance: 65 },
+                                            { code: "BIT 4103", name: "Computer Networks", attendance: 90 }
+                                        ],
+                                        grades: [
+                                            { code: "BIT 4101", name: "Advanced Database Systems", grade: "B+" },
+                                            { code: "BIT 4102", name: "Software Engineering", grade: "C" },
+                                            { code: "BIT 4103", name: "Computer Networks", grade: "A-" }
+                                        ]
+                                    },
+                                    finance: {
+                                        balance: 12500
+                                    },
+                                    hostel: {
+                                        damages: [
+                                            { 
+                                                item: "Desk", 
+                                                description: "Minor scratches", 
+                                                cost: 1500,
+                                                image: "https://www.bing.com/images/search?view=detailV2&ccid=WA2Q3eAb&id=35A4C272C547A64A7A59BCFFF55DFC375D3D4863&thid=OIP.WA2Q3eAbcSUVWnG5VoSTmwHaHa&mediaurl=https%3a%2f%2fstatic.vecteezy.com%2fsystem%2fresources%2fpreviews%2f021%2f970%2f919%2foriginal%2foffice-desk-3d-render-icon-illustration-with-transparent-background-png.png&cdnurl=https%3a%2f%2fth.bing.com%2fth%2fid%2fR.580d90dde01b7125155a71b95684939b%3frik%3dY0g9XTf8XfX%252fvA%26pid%3dImgRaw%26r%3d0&exph=1920&expw=1920&q=desk+png&simid=608033560560099686&FORM=IRPRST&ck=DAB48235B2095F730FCF80B266A68F1D&selectedIndex=4&itb=1"
+                                            },
+                                            { 
+                                                item: "Chair", 
+                                                description: "Broken leg", 
+                                                cost: 2500,
+                                                image: "https://www.bing.com/images/search?view=detailV2&ccid=ahG0OX3v&id=F2A63D58D91392823EEB74535DB5AD44B025B0EB&thid=OIP.ahG0OX3v8TgbYX-tMTJM3gHaHa&mediaurl=https%3a%2f%2fy1furniture.com%2fmedia%2fcatalog%2fcategory%2fTAD440.jpg&cdnurl=https%3a%2f%2fth.bing.com%2fth%2fid%2fR.6a11b4397deff1381b617fad31324cde%3frik%3d67AlsESttV1TdA%26pid%3dImgRaw%26r%3d0&exph=3000&expw=3000&q=desk&simid=608014581044962400&FORM=IRPRST&ck=A7A0A51AA57973EC35568491A0FA0417&selectedIndex=24&itb=0"
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            "BUS-242-094_2022": { 
+                                password: "BUS-242-094/2022", 
+                                name: "Jane Smith", 
+                                email: "jane.smith@mmu.ac.ke", 
+                                phone: "+254712345679", 
+                                program: "BBIT", 
+                                faculty: "BBIT",
+                                year: 4,
+                                type: "student",
+                                profileImage: "https://randomuser.me/api/portraits/women/1.jpg",
+                                clearance: {
+                                    finance: { status: "completed", comment: "" },
+                                    library: { status: "pending", comment: "" },
+                                    academic: { status: "completed", comment: "" },
+                                    admin: { status: "pending", comment: "" },
+                                    hostel: { status: "pending", comment: "" },
+                                    sports: { status: "pending", comment: "" },
+                                    health: { status: "pending", comment: "" },
+                                    examinations: { status: "pending", comment: "" }
+                                },
+                                departmentInfo: {
+                                    library: {
+                                        unreturnedBooks: []
+                                    },
+                                    academic: {
+                                        attendance: [
+                                            { code: "BIT 4101", name: "Advanced Database Systems", attendance: 90 },
+                                            { code: "BIT 4102", name: "Software Engineering", attendance: 85 },
+                                            { code: "BIT 4103", name: "Computer Networks", attendance: 95 }
+                                        ],
+                                        grades: [
+                                            { code: "BIT 4101", name: "Advanced Database Systems", grade: "A" },
+                                            { code: "BIT 4102", name: "Software Engineering", grade: "B+" },
+                                            { code: "BIT 4103", name: "Computer Networks", grade: "A" }
+                                        ]
+                                    }
+                                }
+                            },
+                            "BUS-242-040_2021": { 
+                                password: "BUS-242-040/2021", 
+                                name: "Michael Johnson", 
+                                email: "michael.j@mmu.ac.ke", 
+                                phone: "+254712345680", 
+                                program: "FAMECO", 
+                                faculty: "FAMECO",
+                                year: 4,
+                                type: "student",
+                                profileImage: "https://randomuser.me/api/portraits/men/2.jpg",
+                                clearance: {
+                                    finance: { status: "completed", comment: "" },
+                                    library: { status: "completed", comment: "" },
+                                    academic: { status: "completed", comment: "" },
+                                    admin: { status: "completed", comment: "" },
+                                    hostel: { status: "completed", comment: "" },
+                                    sports: { status: "completed", comment: "" },
+                                    health: { status: "completed", comment: "" },
+                                    examinations: { status: "completed", comment: "" }
+                                }
+                            },
+                            
+                            // Department staff (sample credentials)
+                            "finance1": { 
+                                password: "finance123", 
+                                name: "Finance Officer", 
+                                type: "finance", 
+                                phone: "+254700000001",
+                                profileImage: "https://randomuser.me/api/portraits/men/3.jpg"
+                            },
+                            "finance2": { 
+                                password: "finance123", 
+                                name: "Finance Assistant", 
+                                type: "finance", 
+                                phone: "+254700000002",
+                                profileImage: "https://randomuser.me/api/portraits/women/3.jpg"
+                            },
+                            "library1": { 
+                                password: "library123", 
+                                name: "Librarian", 
+                                type: "library", 
+                                phone: "+254700000003",
+                                profileImage: "https://randomuser.me/api/portraits/women/4.jpg"
+                            },
+                            "academic1": { 
+                                password: "academic123", 
+                                name: "Academic Registrar", 
+                                type: "academic", 
+                                phone: "+254700000004",
+                                profileImage: "https://randomuser.me/api/portraits/men/4.jpg"
+                            },
+                            "admin1": { 
+                                password: "admin123", 
+                                name: "Administrator", 
+                                type: "admin", 
+                                phone: "+254700000005",
+                                profileImage: "https://randomuser.me/api/portraits/women/5.jpg"
+                            },
+                            "hostel1": { 
+                                password: "hostel123", 
+                                name: "Hostel Manager", 
+                                type: "hostel", 
+                                phone: "+254700000006",
+                                profileImage: "https://randomuser.me/api/portraits/men/5.jpg"
+                            },
+                            "sports1": { 
+                                password: "sports123", 
+                                name: "Sports Director", 
+                                type: "sports", 
+                                phone: "+254700000007",
+                                profileImage: "https://randomuser.me/api/portraits/women/6.jpg"
+                            },
+                            "health1": { 
+                                password: "health123", 
+                                name: "Health Officer", 
+                                type: "health", 
+                                phone: "+254700000008",
+                                profileImage: "https://randomuser.me/api/portraits/men/6.jpg"
+                            },
+                            "exams1": { 
+                                password: "exams123", 
+                                name: "Examinations Officer", 
+                                type: "examinations", 
+                                phone: "+254700000009",
+                                profileImage: "https://randomuser.me/api/portraits/women/7.jpg"
+                            }
+                        };
+                        
+                        // Create departments with passwords
+                        const sampleDepartments = {
+                            "finance": { password: "finance123" },
+                            "library": { password: "library123" },
+                            "academic": { password: "academic123" },
+                            "admin": { password: "admin123" },
+                            "hostel": { password: "hostel123" },
+                            "sports": { password: "sports123" },
+                            "health": { password: "health123" },
+                            "examinations": { password: "exams123" }
+                        };
+                        
+                        // Create faculties
+                        const sampleFaculties = {
+                            "BBIT": { name: "Bachelor of Business Information Technology" },
+                            "FAMECO": { name: "Faculty of Media and Communication" }
+                        };
+                        
+                        // Set all sample data
+                        return Promise.all([
+                            database.ref('users').set(sampleUsers),
+                            database.ref('departments').set(sampleDepartments),
+                            database.ref('faculties').set(sampleFaculties)
+                        ]);
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error initializing sample data:", error);
+                });
+        }
+    </script>
+</body>
+</html>
