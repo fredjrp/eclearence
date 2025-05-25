@@ -48,7 +48,7 @@
         header {
             background-color: var(--primary-green);
             color: var(--white);
-            padding: 15px 0;
+            padding: 0.5px 0;
             text-align: center;
             margin-bottom: 20px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
@@ -1240,38 +1240,39 @@
         
         // Upload profile image
         function uploadProfileImage(file) {
-            const storageRef = storage.ref(`profile_images/${currentUser}`);
-            const uploadTask = storageRef.put(file);
-            
-            uploadTask.on('state_changed',
-                (snapshot) => {
-                    // Progress monitoring can be added here
-                },
-                (error) => {
-                    console.error("Error uploading image:", error);
-                    alert("Error uploading profile image. Please try again.");
-                },
-                () => {
-                    // Upload completed successfully
-                    uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
-                        // Update user profile with the new image URL
-                        database.ref('users/' + currentUser).update({
-                            profileImage: downloadURL
-                        })
-                        .then(() => {
-                            // Update the profile image display
-                            profileImage.src = downloadURL;
-                            alert("Profile image updated successfully!");
-                        })
-                        .catch((error) => {
-                            console.error("Error updating profile image URL:", error);
-                            alert("Error updating profile. Please try again.");
-                        });
-                    });
-                }
-            );
+    const userId = currentUser; // Ensure currentUser is the user's UID
+    const timestamp = Date.now(); // To make file name unique
+    const storageRef = storage.ref(`profile_images/${userId}/${timestamp}_${file.name}`);
+    const uploadTask = storageRef.put(file);
+    
+    uploadTask.on('state_changed',
+        (snapshot) => {
+            // Optional: Show upload progress here
+        },
+        (error) => {
+            console.error("Error uploading image:", error);
+            alert("Error uploading profile image. Please try again.");
+        },
+        () => {
+            // Upload completed successfully
+            uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
+                // Save download URL in Realtime Database
+                database.ref('users/' + userId).update({
+                    profileImage: downloadURL
+                })
+                .then(() => {
+                    // Update the profile image in the UI
+                    document.getElementById('profile-img').src = downloadURL;
+                    alert("Profile image updated successfully!");
+                })
+                .catch((error) => {
+                    console.error("Error updating profile image URL:", error);
+                    alert("Error updating profile. Please try again.");
+                });
+            });
         }
-        
+    );
+}        
         // Load student data
         function loadStudentData(user) {
             // Set profile information
